@@ -63,7 +63,6 @@ def login():
 	if request.method == 'POST':
 		cur = g.db.execute('select salt, password from users where username=?', [request.form['username']])
 		user_dict = cur.fetchall()
-		print user_dict
 		if len(user_dict) != 0:
 			for row in user_dict:
 				salt = row[0]
