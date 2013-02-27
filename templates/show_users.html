@@ -1,0 +1,10 @@
+{% extends 'layout.html'%}
+{% block body %}
+	{%for user in users %}
+		<li><h2>Username: </h2>{{user.username}}</li>
+		<li><h2>Password: </h2>{{user.password}}</li>
+		<br/>
+	{% else %}
+		<h2>Wow! No users!</h2>
+	{% endfor %}
+{% endblock %}

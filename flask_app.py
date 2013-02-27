@@ -1,4 +1,4 @@
-import sqlite3
+import sqlite3, hashlib, time
 from flask import Flask, g, render_template, request, redirect, url_for, flash, session
 from contextlib import closing
 
@@ -29,25 +29,64 @@ def add_entry():
 	flash('New entry was successfully posted')
 	return redirect(url_for('show_entries'))
 
+def secure_hash(salt, password):
+	return hashlib.sha224(str(salt) + '--' + password).hexdigest()
+
+@app.route('/sign_up', methods = ['POST', 'GET'])
+def sign_up():
+	if request.method == 'POST':
+		msg = None
+		if request.form['username'] is None:
+			msg = 'Please input username !'
+
+		
+		if request.form['password'] is None:
+			msg = 'Please input password ! '
+
+		if msg is None:
+			msg = 'New user added!'
+			salt = (int)(time.time())
+
+			secured_pwd = secure_hash(salt, request.form['password'])
+
+			g.db.execute('insert into users ( username, salt, password ) values (?, ?, ?)', [request.form['username'], salt, secured_pwd])
+			g.db.commit()
+
+		flash(msg)
+		return redirect(url_for('show_entries'))
+	return render_template('sign_up.html')
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
 	error = None
 	if request.method == 'POST':
-		if request.form['username'] != app.config['USERNAME']:
-			error = 'Invalid username'
-		elif request.form['password'] != app.config['PASSWORD']:
-			error = 'Invalid password'
-		else:
-			session['logged_in'] = True
-			flash('Logged in !!!')
-			return redirect(url_for('show_entries'))
-	return render_template('login.html', error=error)
+		cur = g.db.execute('select salt, password from users where username=?', [request.form['username']])
+		user_dict = cur.fetchall()
+		print user_dict
+		if len(user_dict) != 0:
+			for row in user_dict:
+				salt = row[0]
+				password = row[1]
+
+			if password == secure_hash(salt, request.form['password']):	
+				session['logged_in'] = True
+				flash('Logged in !!!')
+				return redirect(url_for('show_entries'))
+	flash('No user or wrong password...')
+	return render_template('login.html')
 
 @app.route('/logout')
 def logout():
 	session.pop('logged_in', None)
 	flash('Logged out !')
 	return redirect(url_for('show_entries'))	
+
+@app.route('/users')
+def show_users():
+	cur = g.db.execute('select username, password from users order by username')
+	users = [dict(username = row[0], password = row[1]) for row in cur.fetchall()]
+	return render_template('show_users.html', users = users)
 
 @app.before_request
 def before_request():
